@@ -8,15 +8,19 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.concurrent.Exchanger;
 
 public class MonoThreadClientHandler implements Runnable {
 
     // Переменная, содержащая сокет текущего клиента
     private static Socket clientDialog;
 
-    // Конструктор класса, принимает в качестве параметра сокет клиента
-    public MonoThreadClientHandler(Socket client) {
+    Exchanger<String> exchanger;
+    String message;
 
+    // Конструктор класса, принимает в качестве параметра сокет клиента
+    public MonoThreadClientHandler(Socket client, Exchanger<String> ex) {
+        this.exchanger = ex;
         MonoThreadClientHandler.clientDialog = client;
 
     }
@@ -38,36 +42,55 @@ public class MonoThreadClientHandler implements Runnable {
             // Начинаем диалог с подключенным клиентом в цикле, пока сокет не будет закрыт клиентом
             while (!clientDialog.isClosed()) {
 
-                System.out.println("Server reading from channel...");
+                if (MultiThreadServer.entry != null) {
+                    System.out.println("One new message on server...");
+                    System.out.println("Message:" + MultiThreadServer.entry);
+                    out.writeUTF(MultiThreadServer.entry);
+                    MultiThreadServer.entry = null;
+                }
+                else {
 
-                // Сервер ждёт в канале чтения (in) получения данных от клиента. После получения, считывает их
-                // todo Читать по-другому, тк будет кодирование
-                String entry = in.readUTF();
 
-                // Выводим в консоль
-                System.out.println("Got on server message: " + entry);
+                    System.out.println("Server reading from channel...");
 
-                // Проверка условия продолжения работы с клиентом по этому сокету.
-                // Ищем кодовое слово quit
-                // todo Надо как-то по другому обрывать диалог - как?
-                if (entry.equalsIgnoreCase("quit")) {
+                    // Сервер ждёт в канале чтения (in) получения данных от клиента. После получения, считывает их
+                    // todo Читать по-другому, тк будет кодирование
+                    String my_entry = in.readUTF();
+
+                    // Выводим в консоль
+                    System.out.println("Got on server message: " + my_entry);
+                    MultiThreadServer.entry = my_entry;
+
+                    //message = my_entry;
+                /*if (message == null)  message = exchanger.exchange(new String());
+                else message = exchanger.exchange(my_entry);
+                System.out.println("Client got message:  " + message);*/
+
+                    // Проверка условия продолжения работы с клиентом по этому сокету.
+                    // Ищем кодовое слово quit
+                    // todo Надо как-то по другому обрывать диалог - как?
+                /*if (my_entry.equalsIgnoreCase("quit")) {
 
                     // Если кодовое слово получено, то инициализируем закрытие потока
                     System.out.println("Client initialize connection's closing...");
-                    out.writeUTF("Server reply - " + entry + " - OK");
+                    out.writeUTF("Server reply - " + my_entry + " - OK");
                     Thread.sleep(3000);
                     break; // fixme моветон!
                 }
 
                 // Если слова quit для окончания работы не поступало, то продолжаем работу
                 System.out.println("Server is trying to write to channel..");
-                out.writeUTF("Server reply - " + entry + " - OK");
-                System.out.println("Server wrote message to client");
+                out.writeUTF("Server reply - " + my_entry + " - OK");
+                System.out.println("Server wrote message to client");*/
+                    Thread.sleep(3000);
+                    out.flush();
 
-                // Освобождаем буфер сетевых сообщений
-                out.flush();
 
-                // Возвращаемся в начало для считывания нового сообщения
+                    // Освобождаем буфер сетевых сообщений
+                    //out.flush();
+
+                    // Возвращаемся в начало для считывания нового сообщения
+                }
             }
 
             // Если кодовое слово quit получено, то закрываем соединения
